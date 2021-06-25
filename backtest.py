@@ -19,9 +19,9 @@ class Backtest:
     """
     This is a backtest class that is used to compute profit for particular strategy.
     """
-    def __init__(self, balance_counter, order_volume_prop = 0.05) -> None:
+    def __init__(self, balance_counter, balance_base = 0, order_volume_prop = 0.05) -> None:
         # self.data  = data
-        self.balance_base = 0
+        self.balance_base = balance_base
         self.balance_counter = balance_counter
         self.commision = 0.0025 # 0.25%
         self.prop = order_volume_prop
