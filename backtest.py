@@ -19,9 +19,9 @@ class Backtest:
     """
     This is a backtest class that is used to compute profit for particular strategy.
     """
-    def __init__(self, balance_counter, balance_base = 0, order_volume_prop = 0.05) -> None:
+    def __init__(self, balance_counter, order_volume_prop = 0.05) -> None:
         # self.data  = data
-        self.balance_base = balance_base
+        self.balance_base = 0
         self.balance_counter = balance_counter
         self.commision = 0.0025 # 0.25%
         self.prop = order_volume_prop
@@ -33,7 +33,8 @@ class Backtest:
         self._orderbook = []
         self._returns = []
         self._base_converted = 0
-    
+        self._transactions = []
+        self._portfolio_props = []
     def process_orders(self):
         N = len(self._orderbook)
 
@@ -135,7 +136,36 @@ class Backtest:
         
         # return self.balance_base*(1-self.commision) * ticker['close'] + self.balance_counter
         return self.balance_base* ticker['close'] + self.balance_counter
-        
+
+    def record_transaction(self, order_type, volume, price):
+        transaction = {
+            'timestamp': None,
+            'pair': None,
+            'type': order_type, # "buy" "sell"
+            'post_only': None,
+            'volume': volume, # in counter currency
+            'price': price,
+            'stop_price': '',
+            'stop_direction': '',
+            'base_account_id': None,
+            'counter_account_id': None,
+            'wallet': None
+            }
+        self._transactions.append(transaction)
+
+    def get_transactions(self):
+        if self._transactions == []:
+            return pd.DataFrame({})
+        return pd.DataFrame(self._transactions)
+    
+    def _record_portfolio_prop(self, ticker):
+        total_balance = self.balance_base* ticker['close'] + self.balance_counter
+        base_prop = (self.balance_base* ticker['close'])/total_balance
+        self._portfolio_props.append(base_prop)
+
+    def get_portfolio_proportions(self):
+        return np.array(self._portfolio_props)
+
     def _evaluate_signal(self, ticker, signal):
         """
         Evaluate the given signal
@@ -157,15 +187,19 @@ class Backtest:
             base_volume = round(counter_volume/base_price*(1-self.commision),8)
             self.balance_base += base_volume
             self.balance_counter -= counter_volume
+            self.record_transaction('buy', counter_volume, base_price)
 
         elif signal == -1:
             base_volume = self.balance_base * self.prop
             counter_volume = round(base_price*base_volume*(1-self.commision),8)
             self.balance_base -= base_volume
             self.balance_counter += counter_volume
+            self.record_transaction('sell', base_volume, base_price)
 
         elif signal == 0:
             pass
+
+        self._record_portfolio_prop(ticker)
     
     def run(self, ticker, signal = None, order = None):
         if not self._base_converted:
